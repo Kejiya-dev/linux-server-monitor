@@ -1,5 +1,15 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+
+mkdir -p "$SCRIPT_DIR/logs"
+
+exec > >(tee -a "$SCRIPT_DIR/logs/monitor.log") 2>&1
+
+echo ""
+echo "Monitoring Started At: $(date)"
+echo "================================"
+
 echo "================================"
 echo "       LINUX SERVER MONITOR"
 echo "================================"
@@ -19,7 +29,23 @@ nproc
 
 echo ""
 echo "CPU Usage:"
-top -bn1 | grep "Cpu(s)"
+
+CPU_USAGE=$(top -bn1 | awk -F',' '/Cpu\(s\)/ {
+    for (i=1; i<=NF; i++) {
+        if ($i ~ /id/) {
+            gsub(/[^0-9.]/, "", $i)
+            printf "%.0f", 100 - $i
+        }
+    }
+}')
+
+echo "CPU Usage Percentage: ${CPU_USAGE}%"
+
+if [ "$CPU_USAGE" -ge 80 ]; then
+    echo "WARNING: High CPU usage!"
+else
+    echo "OK: CPU usage is normal."
+fi
 
 echo ""
 echo "Memory Usage:"
@@ -50,8 +76,8 @@ else
 fi
 
 echo ""
-echo "System Uptime:"
-uptime
+echo "Top 5 CPU-Consuming Processes:"
+ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head -n 6
 
 echo ""
 echo "================================"
